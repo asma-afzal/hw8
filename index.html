@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 2px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+        }
+
+
+        h1 {
+            margin-left: 30px;
+        }
+
+        .pop-up {
+            position: absolute; 
+            border: 1px solid black;
+            border-radius: 1px;
+            line-height: 1.2;
+            width: 200px;
+            pointer-events: none;
+            background-color: white;
+            padding: 10px;
+        }
+
+        .annotation {
+            font-size: 15px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-style: italic;
+            font-weight: 200;
+
+        }
+
+        .lgd {
+        display: grid;
+        justify-content: center;
+        align-items: center;
+        margin-top: 3%;
+      }
+
+
+    </style>
+    <!-- add your script blocks at the end -->
+
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline" style = "text-align: center;">
+            COVID-19 Related Deaths by County            
+        </h1>
+
+        <h2 style = "text-align: center;">
+            (Jan 2020 to May 2021)
+        </h2>
+
+        <svg width="1050px" height="500px">
+
+        </svg>
+
+        <div class= "pop-up"></div>
+        <div class="lgd">
+            <h4>COVID-19 Related Deaths</h4>
+            <img src="legend.png" width="200px" />
+          </div>
+
+          <p class = "caption" style = "text-align: center;">
+            Source: CDC Provisional COVID-19 Death Counts in the United States by County <br>
+            <!-- link: https://data.cdc.gov/NCHS/Provisional-COVID-19-Death-Counts-in-the-United-St/kn79-hsxy -->
+        </p1>
+    </div>
+</body>
+
+
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+<script src="https://d3js.org/d3.v6.min.js"></script>
+
+<!-- load topojson script -->
+<script src="https://unpkg.com/topojson@3"></script>
+
+<!-- load legend script -->
+<script src="https://unpkg.com/d3-svg-legend@1.13.0/d3-legend.min.js"></script>
+
+<script>
+    console.log({ d3 })
+    console.log({ topojson })
+
+    // //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+    Promise.all([ //waits for all the data to load, then when loaded will return it all in one array called res
+        d3.json('county-topo.json'),
+    ])
+        .then(ready)
+        .catch((err) => {
+            console.log(err);
+        });
+
+    function ready(res) {
+        console.log(res[0])
+        let raw = res[0]
+
+        let county = topojson.feature(raw, raw.objects.county);
+        let state = topojson.feature(raw, raw.objects.state);
+
+        let width = 1050;
+        let height = 500;
+
+        console.log(county, state)
+
+        let svg = d3.select("body").select("svg")
+
+        let myProjection = d3.geoAlbersUsa()
+            .fitSize([width, height], county)
+            .fitSize([width, height], state)
+
+        //path function
+        let path = d3.geoPath().projection(myProjection)
+        let innerlines = topojson.mesh(raw, raw.objects.state, function (a, b) {
+            return a != b;
+        });
+
+        svg
+            .selectAll(".states")
+            .data(state.features)
+            .join("path")
+            .attr("d", path)
+            .style("fill", "#eee")
+            .style("stroke", "none")
+            .style("pointer-events", "none")
+
+        let counties = svg
+                .selectAll(".counties")
+                .data(county.features)
+                .join("path")
+                .attr("d", path)
+                .attr("fill", function(d) {if (d.properties['Deaths_involving_COVID-19'] >= 10 && d.properties['Deaths_involving_COVID-19'] < 50) {return "#eab8a3"; } 
+                else if (d.properties['Deaths_involving_COVID-19'] >=50 && d.properties['Deaths_involving_COVID-19']  < 100) {return "#c28987";}
+                else if (d.properties[d.properties['Deaths_involving_COVID-19'] >=100 && 'Deaths_involving_COVID-19']  < 1000) {return "#955d76";}
+                else if (d.properties['Deaths_involving_COVID-19']  >= 1000) {return "#2c115f";}
+                return "#D3D3D3";})
+                .style("stroke", "white")
+                .style("stroke-width", .5)
+
+        let states = svg
+            .append("path")
+            .attr("d", path(innerlines))
+            .style("fill", "none")
+            .style("stroke", "grey")
+            .style("stroke-width", 0.75)
+            .style("pointer-events", "none")
+
+
+        let popup = d3.select(".pop-up");
+     
+        // let color = d3.scale.threshold()
+        //     .domain([0, 10, 24, 50, 100 ])
+        //     .range(["#feedde", "#eab8a3", "#c28987", "#955d76", "#653569", "#2c115f", "#D3D3D3"]);
+
+
+        // let counties = svg
+        //     .selectAll(".counties")
+        //     .data(county.features)
+        //     .join("path")
+        //     .attr("d", path)
+        //     .attr("fill", function(d) {if (d.properties['Deaths_involving_COVID-19'] === 0 ) {return "#feedde"; } 
+        //     else if (d.properties['Deaths_involving_COVID-19'] > 0 && d.properties['Deaths_involving_COVID-19'] < 10) {return "#eab8a3";} 
+        //     else if (d.properties['Deaths_involving_COVID-19'] >=10 && d.properties['Deaths_involving_COVID-19']  < 25) {return "#c28987";}
+        //     else if (d.properties[d.properties['Deaths_involving_COVID-19'] >=25 && 'Deaths_involving_COVID-19']  < 50) {return "#955d76";}
+        //     else if (d.properties['Deaths_involving_COVID-19'] >= 50 && d.properties['Deaths_involving_COVID-19']  < 100) {return "#653569";}
+        //     else if (d.properties['Deaths_involving_COVID-19']  >= 100) {return "#2c115f";}
+        //     // else if (d.properties['Deaths_involving_COVID-19']  === null) {return "#D3D3D3";}
+        //     return "#D3D3D3";})
+        //     .style("stroke", "white")
+        //     .style("stroke-width", .5)
+
+
+            // let counties = svg
+            //     .selectAll(".counties")
+            //     .data(county.features)
+            //     .join("path")
+            //     .attr("d", path)
+            //     .attr("fill", function(d) {if (d.properties['Deaths_involving_COVID-19'] >= 0 && d.properties['Deaths_involving_COVID-19'] < 10 ) {return "#feedde"; } 
+            //     else if (d.properties['Deaths_involving_COVID-19'] >= 10 && d.properties['Deaths_involving_COVID-19'] < 50) {return "#eab8a3";} 
+            //     else if (d.properties['Deaths_involving_COVID-19'] >=50 && d.properties['Deaths_involving_COVID-19']  < 100) {return "#c28987";}
+            //     else if (d.properties[d.properties['Deaths_involving_COVID-19'] >=100 && 'Deaths_involving_COVID-19']  < 1000) {return "#955d76";}
+            //     else if (d.properties['Deaths_involving_COVID-19']  >= 1000) {return "#2c115f";}
+            //     return "#D3D3D3";})
+            //     .style("stroke", "white")
+            //     .style("stroke-width", .5)
+
+
+
+            counties.on("mouseover", (event,d) => {
+
+            
+            svg.select(".p-" + d.properties.GEOID)
+                .style("stroke", "black")
+                .style("stroke-width", 2)
+                .style("fill", "#fed8b1")
+                .style("fill-opacity", 1)
+                .raise()
+
+            let reScaleLang = d3.scaleThreshold()
+                .domain([0]) //make sure to put this in brackets!
+                .range(["below", "above"])
+            
+             
+            let lang = "In " + d.properties.NAMELSAD + " there are " + d.properties['Deaths_involving_COVID-19'] + " deaths involving COVID-19."
+            
+            popup
+                .style("opacity", 0.8)
+                .style("left", (event.x) + "px")
+                .style("top", (event.y) + "px")
+                .html(lang)
+        
+        
+        })
+
+    }
+
+
+
+
+
+
+// unique id will be d.properties.Geo_QName
+
+</script>
+
+
+
+
